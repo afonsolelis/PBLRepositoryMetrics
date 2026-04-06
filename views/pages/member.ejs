@@ -1,0 +1,61 @@
+<%- include('../partials/header') %>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h4 class="mb-0"><%= member.name %></h4>
+    <small class="text-muted">@<%= member.username %></small>
+  </div>
+  <a href="/" class="btn btn-outline-secondary btn-sm">← Back</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card text-center"><div class="card-body">
+      <div class="fs-2 fw-bold text-primary"><%= commits.length %></div>
+      <div class="text-muted small">Total Commits</div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center"><div class="card-body">
+      <div class="fs-2 fw-bold text-info"><%= mrs.length %></div>
+      <div class="text-muted small">Merge Requests</div>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center"><div class="card-body">
+      <div class="fs-2 fw-bold text-warning"><%= issues.length %></div>
+      <div class="text-muted small">Assigned Issues</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">Projects</div>
+  <div class="list-group list-group-flush">
+    <% projects.forEach(p => { %>
+      <a href="/projects/<%= p.project_id %>" class="list-group-item list-group-item-action">
+        <%= p.name %>
+      </a>
+    <% }) %>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header">Recent Commits</div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead class="table-light"><tr><th>SHA</th><th>Message</th><th>Date</th></tr></thead>
+      <tbody>
+        <% commits.slice(0, 20).forEach(c => { %>
+        <tr>
+          <td><code class="small"><%= c.sha.substring(0,8) %></code></td>
+          <td class="small"><%= c.message.substring(0, 70) %></td>
+          <td class="small text-muted"><%= c.committed_date.substring(0,10) %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

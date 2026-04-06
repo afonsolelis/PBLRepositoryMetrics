@@ -1,0 +1,217 @@
+<%- include('../partials/header') %>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h4 class="mb-0"><%= project.name %></h4>
+    <small class="text-muted"><%= project.path_with_namespace %></small>
+  </div>
+  <a href="/" class="btn btn-outline-secondary btn-sm">← Back</a>
+</div>
+
+<!-- CEP Conformance Card -->
+<% if (conformance) { %>
+<div class="card mb-4 border-<%= conformance.score >= 0.7 ? 'success' : conformance.score >= 0.4 ? 'warning' : 'danger' %>">
+  <div class="card-header bg-<%= conformance.score >= 0.7 ? 'success' : conformance.score >= 0.4 ? 'warning' : 'danger' %> text-<%= conformance.score < 0.7 && conformance.score >= 0.4 ? 'dark' : 'white' %>">
+    <strong>SCM Conformance — CEP Result · Sprint <%= conformance.sprint_id %> · Day <%= conformance.sprint_day %>/<%= conformance.total_working_days %></strong>
+    <span class="float-end">Score: <strong><%= Math.round(conformance.score * 100) %>%</strong> · Trend: <%= conformance.trend %></span>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <!-- Distance table -->
+      <div class="col-md-5">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Dimension</th><th>Expected</th><th>Actual</th><th>Distance</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Commits</td>
+              <td><%= conformance.expected.commits_cumulative %></td>
+              <td><%= conformance.actual.commits_cumulative %></td>
+              <td class="<%= conformance.distance.commits >= 0 ? 'text-success' : 'text-danger' %>">
+                <%= conformance.distance.commits >= 0 ? '+' : '' %><%= conformance.distance.commits %>
+              </td>
+            </tr>
+            <tr>
+              <td>Active Members</td>
+              <td><%= conformance.expected.active_members %></td>
+              <td><%= conformance.actual.active_members_today %></td>
+              <td class="<%= conformance.distance.members >= 0 ? 'text-success' : 'text-danger' %>">
+                <%= conformance.distance.members >= 0 ? '+' : '' %><%= conformance.distance.members %>
+              </td>
+            </tr>
+            <tr>
+              <td>MRs Merged</td>
+              <td><%= conformance.expected.mrs_merged.toFixed(1) %></td>
+              <td><%= conformance.actual.mrs_merged %></td>
+              <td class="<%= conformance.distance.mrs >= 0 ? 'text-success' : 'text-danger' %>">
+                <%= conformance.distance.mrs >= 0 ? '+' : '' %><%= conformance.distance.mrs %>
+              </td>
+            </tr>
+            <tr>
+              <td>Issues Closed</td>
+              <td><%= conformance.expected.issues_closed.toFixed(1) %></td>
+              <td><%= conformance.actual.issues_closed %></td>
+              <td class="<%= conformance.distance.issues >= 0 ? 'text-success' : 'text-danger' %>">
+                <%= conformance.distance.issues >= 0 ? '+' : '' %><%= conformance.distance.issues %>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="mt-2 small text-muted">
+          Conventional commit rate: <strong><%= Math.round(conformance.conventional_commit_rate * 100) %>%</strong>
+        </div>
+      </div>
+
+      <!-- Strong/Weak points -->
+      <div class="col-md-7">
+        <% if (conformance.strong_points.length > 0) { %>
+        <div class="mb-2">
+          <div class="fw-bold text-success mb-1">Strong Points</div>
+          <% conformance.strong_points.forEach(sp => { %>
+            <div class="text-success small">✓ <%= sp %></div>
+          <% }) %>
+        </div>
+        <% } %>
+        <% if (conformance.weak_points.length > 0) { %>
+        <div class="mb-2">
+          <div class="fw-bold text-danger mb-1">Weak Points</div>
+          <% conformance.weak_points.forEach(wp => { %>
+            <div class="text-danger small">✗ <%= wp %></div>
+          <% }) %>
+        </div>
+        <% } %>
+        <% if (conformance.patterns.length > 0) { %>
+        <div class="mt-2">
+          <div class="fw-bold mb-1">CEP Patterns Detected</div>
+          <% conformance.patterns.forEach(p => { %>
+            <span class="badge me-1 bg-<%= p.severity === 'critical' ? 'danger' : 'warning text-dark' %>">
+              <%= p.type %>
+            </span>
+          <% }) %>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+<% } %>
+
+<!-- Dimension scores -->
+<% if (conformance && conformance.dimension_scores) { %>
+<div class="row g-3 mb-4">
+  <% const ds = conformance.dimension_scores; %>
+  <% [['commit_quality','Commit Quality','primary'],['review_process','Review Process','info'],['issue_tracking','Issue Tracking','warning'],['delivery_cadence','Delivery Cadence','success']].forEach(([key,label,color]) => { %>
+  <div class="col-6 col-md-3">
+    <div class="card text-center">
+      <div class="card-body py-2">
+        <div class="fs-3 fw-bold text-<%= color %>"><%= Math.round(ds[key] * 100) %>%</div>
+        <div class="small text-muted"><%= label %></div>
+      </div>
+    </div>
+  </div>
+  <% }) %>
+</div>
+<% } %>
+
+<!-- Team members -->
+<div class="card mb-4">
+  <div class="card-header">Team Members</div>
+  <div class="list-group list-group-flush">
+    <% members.forEach(m => { %>
+      <a href="/members/<%= m.username %>" class="list-group-item list-group-item-action d-flex justify-content-between">
+        <span><%= m.name %> <small class="text-muted">@<%= m.username %></small></span>
+        <span class="badge bg-<%= m.access_level >= 40 ? 'primary' : 'secondary' %>">
+          <%= m.access_level >= 40 ? 'Maintainer' : 'Developer' %>
+        </span>
+      </a>
+    <% }) %>
+  </div>
+</div>
+
+<!-- Commits by author -->
+<div class="card mb-4">
+  <div class="card-header">Commits by Author</div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead class="table-light"><tr><th>Author</th><th class="text-center">Commits</th></tr></thead>
+      <tbody>
+        <% Object.entries(commitsByAuthor).sort((a,b)=>b[1].length-a[1].length).forEach(([author, cs]) => { %>
+          <tr>
+            <td><%= author %></td>
+            <td class="text-center"><span class="badge bg-primary"><%= cs.length %></span></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Recent commits -->
+<div class="card mb-4">
+  <div class="card-header">Recent Commits (Configuration Items)</div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead class="table-light"><tr><th>SHA</th><th>Author</th><th>Message</th><th>Date</th></tr></thead>
+      <tbody>
+        <% commits.slice(0, 20).forEach(c => { %>
+        <tr>
+          <td><code class="small"><%= c.sha.substring(0,8) %></code></td>
+          <td class="small"><%= c.author_name %></td>
+          <td class="small"><%= c.message.substring(0, 60) %><%= c.message.length > 60 ? '…' : '' %></td>
+          <td class="small text-muted"><%= c.committed_date.substring(0,10) %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MRs -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">Merge Requests (Change Control)</div>
+      <div class="list-group list-group-flush">
+        <% if (mrs.length === 0) { %>
+          <div class="list-group-item text-muted">No merge requests in this sprint</div>
+        <% } %>
+        <% mrs.forEach(mr => { %>
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between">
+              <span class="small fw-bold">#<%= mr.iid %> <%= mr.title %></span>
+              <span class="badge bg-<%= mr.state === 'merged' ? 'success' : mr.state === 'opened' ? 'warning text-dark' : 'secondary' %>">
+                <%= mr.state %>
+              </span>
+            </div>
+            <small class="text-muted"><%= mr.author_name %> · <%= mr.created_at.substring(0,10) %></small>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">Issues (Requirement Traceability)</div>
+      <div class="list-group list-group-flush">
+        <% if (issues.length === 0) { %>
+          <div class="list-group-item text-muted">No issues in this sprint</div>
+        <% } %>
+        <% issues.forEach(issue => { %>
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between">
+              <span class="small fw-bold">#<%= issue.iid %> <%= issue.title %></span>
+              <span class="badge bg-<%= issue.state === 'closed' ? 'success' : 'warning text-dark' %>">
+                <%= issue.state %>
+              </span>
+            </div>
+            <small class="text-muted">
+              <%= (issue.assignees || []).map(a => a.name).join(', ') %>
+              · <%= (issue.labels || []).join(', ') %>
+            </small>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>
