@@ -2,11 +2,12 @@
  * Simulation Data Generator — LGPD-safe synthetic data
  *
  * Generates synthetic PBL sprint data for 5 teams, each exhibiting a
- * distinct SCM conformance pattern detectable by the CEP evaluation layer:
+ * distinct SCM conformance pattern detectable by the CEP evaluation layer.
+ * All patterns describe team-level artifact conformance behaviors:
  *
  *   Team Alpha   — Consistent delivery (reference team)
  *   Team Beta    — Cramming pattern (commits concentrated at sprint end)
- *   Team Gamma   — Ghost member (one contributor silent for the sprint)
+ *   Team Gamma   — Partial deliverable (team produces incomplete artifacts)
  *   Team Delta   — MR bottleneck (PRs opened but never reviewed/merged)
  *   Team Epsilon — Recovering team (slow start, accelerating cadence)
  *
@@ -74,9 +75,8 @@ const TEAMS = [
     project_id: 1003,
     name: 'Team Gamma — M7 Sprint 3',
     path: 'inteli-m7/team-gamma-s3',
-    description: 'Ghost member pattern. One contributor has zero commits this sprint.',
-    pattern: 'ghost_member',
-    ghost_member: 'lucas.pinto',
+    description: 'Partial deliverable pattern. Team produces incomplete documentation artifacts.',
+    pattern: 'partial_deliverable',
     members: [
       { user_id: 301, username: 'karen.nunes',    name: 'Karen Nunes',    access_level: 40 },
       { user_id: 302, username: 'lucas.pinto',    name: 'Lucas Pinto',    access_level: 30 },
@@ -170,7 +170,6 @@ function syntheticSha() {
 // ─── Commit generators per pattern ───────────────────────────────────────────
 function generateCommits(team) {
   const commits = [];
-  const activeMembers = team.members.filter(m => m.username !== team.ghost_member);
 
   switch (team.pattern) {
     case 'consistent': {
@@ -215,10 +214,10 @@ function generateCommits(team) {
       break;
     }
 
-    case 'ghost_member': {
-      // Normal activity but ghost member (lucas.pinto) contributes nothing
+    case 'partial_deliverable': {
+      // Moderate activity — team delivers but documentation artifacts are partial
       for (const day of PAST_WORKING_DAYS) {
-        const dailyCommitters = pickN(activeMembers, 2 + Math.floor(Math.random() * 2));
+        const dailyCommitters = pickN(team.members, 2 + Math.floor(Math.random() * 2));
         for (const member of dailyCommitters) {
           commits.push({
             project_id: team.project_id,
@@ -288,7 +287,7 @@ function generateMRs(team) {
 
   switch (team.pattern) {
     case 'consistent':
-    case 'ghost_member': {
+    case 'partial_deliverable': {
       // 2 MRs: one merged, one still open (being reviewed)
       mrs.push({
         project_id: team.project_id,
@@ -429,12 +428,10 @@ function generateIssues(team) {
       break;
     }
 
-    case 'ghost_member': {
-      // 6 issues: 3 closed, but ghost member's issues untouched
-      const ghost = team.members.find(m => m.username === team.ghost_member);
+    case 'partial_deliverable': {
+      // 6 issues: 3 closed — team is active but documentation is partial
       for (let i = 0; i < 6; i++) {
-        const isGhostIssue = i >= 4;
-        const isClosed = !isGhostIssue && i < 3;
+        const isClosed = i < 3;
         const closedDay = PAST_WORKING_DAYS[Math.min(i + 1, PAST_WORKING_DAYS.length - 1)];
         issues.push({
           project_id: team.project_id,
@@ -446,8 +443,8 @@ function generateIssues(team) {
           labels: [sprintLabel, templates[i].effort],
           created_at: timestampOnDay(day1, 9, 11),
           closed_at: isClosed ? timestampOnDay(closedDay, 14, 18) : null,
-          assignees: [{ username: isGhostIssue ? ghost.username : team.members[i % 4].username,
-                        name: isGhostIssue ? ghost.name : team.members[i % 4].name }],
+          assignees: [{ username: team.members[i % 5].username,
+                        name: team.members[i % 5].name }],
         });
       }
       break;

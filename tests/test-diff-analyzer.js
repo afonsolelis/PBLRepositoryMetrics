@@ -71,10 +71,9 @@ assert(healthy.median_commit_size === 40, `Healthy: median = 40 (got ${healthy.m
 assert(healthy.atomic_ratio === 1.0, `Healthy: all commits are atomic (got ${healthy.atomic_ratio})`);
 assert(healthy.test_ratio > 0, `Healthy: test_ratio > 0 (got ${healthy.test_ratio})`);
 assert(healthy.doc_ratio > 0, `Healthy: doc_ratio > 0 (got ${healthy.doc_ratio})`);
-assert(healthy.contributor_balance > 0.5, `Healthy: balanced contributors (got ${healthy.contributor_balance})`);
 assert(healthy.patterns.length === 0, `Healthy: no patterns detected`);
 assert(healthy.composite_score > 0.5, `Healthy: composite_score > 0.5 (got ${healthy.composite_score})`);
-assert(healthy.contribution_by_member.length === 3, `Healthy: 3 contributors`);
+assert(healthy._professor_raw_data.contribution_by_member.length === 3, `Healthy: professor raw data has 3 contributors`);
 
 // ─── Test problematic project (monolithic, no tests, imbalanced) ────────────
 
@@ -109,14 +108,15 @@ const bad = computeMetrics(badDiffs, badMembers);
 assert(bad.total_commits === 2, `Bad: total_commits = 2`);
 assert(bad.atomic_ratio < 1.0, `Bad: not all atomic (got ${bad.atomic_ratio})`);
 assert(bad.test_ratio === 0, `Bad: no tests (got ${bad.test_ratio})`);
-assert(bad.contributor_balance === 0, `Bad: single contributor (got ${bad.contributor_balance})`);
 
-// Check patterns
+// Check patterns (team-level only — no LOAD_IMBALANCE)
 const patternTypes = bad.patterns.map(p => p.type);
 assert(patternTypes.includes('MONOLITHIC_COMMIT'), `Bad: MONOLITHIC_COMMIT detected`);
 assert(patternTypes.includes('NO_TESTS'), `Bad: NO_TESTS detected`);
-assert(patternTypes.includes('LOAD_IMBALANCE'), `Bad: LOAD_IMBALANCE detected`);
-assert(bad.composite_score < 0.3, `Bad: composite_score < 0.3 (got ${bad.composite_score})`);
+assert(!patternTypes.includes('LOAD_IMBALANCE'), `Bad: LOAD_IMBALANCE removed (individual metric)`);
+assert(bad.composite_score < 0.5, `Bad: composite_score < 0.5 (got ${bad.composite_score})`);
+// Per-member data still available in professor raw data
+assert(bad._professor_raw_data.contribution_by_member.length >= 1, `Bad: professor raw data available`);
 
 // ─── Test churn detection ───────────────────────────────────────────────────
 

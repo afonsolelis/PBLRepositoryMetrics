@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
         { $sort: { sprint_day: -1 } },
         { $group: { _id: '$project_id', doc: { $first: '$$ROOT' } } },
         { $replaceRoot: { newRoot: '$doc' } },
-        { $sort: { score: -1 } },
+        { $sort: { project_id: 1 } },
       ]).toArray(),
       db.collection('sprint_descriptors').findOne({ sprint_id: 'M7-S3' }),
     ]);

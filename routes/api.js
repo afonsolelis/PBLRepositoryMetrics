@@ -3,22 +3,9 @@ const router = express.Router();
 const { getDB } = require('../config/db');
 const { buildCommitFilter, buildMRFilter, buildIssueFilter } = require('../utils/filters');
 
-// Commits per student (CEP input: member distribution)
-router.get('/commits-per-student', async (req, res) => {
-  const db = getDB();
-  const filter = buildCommitFilter(req.query);
-  const result = await db.collection('commits').aggregate([
-    { $match: filter },
-    { $group: { _id: '$author_name', count: { $sum: 1 } } },
-    { $sort: { count: -1 } },
-  ]).toArray();
-  res.json({
-    labels: result.map(r => r._id),
-    datasets: [{ label: 'Commits', data: result.map(r => r.count) }],
-  });
-});
+// ── Team-level endpoints (dashboard) ─────────────────────────────────────────
 
-// Commits over time (CEP input: temporal distribution)
+// Team commits over time (CEP input: temporal distribution)
 router.get('/commits-over-time', async (req, res) => {
   const db = getDB();
   const filter = buildCommitFilter(req.query);
@@ -33,24 +20,6 @@ router.get('/commits-over-time', async (req, res) => {
   res.json({
     labels: result.map(r => r._id),
     datasets: [{ label: 'Commits', data: result.map(r => r.count) }],
-  });
-});
-
-// Code churn per student
-router.get('/lines-per-student', async (req, res) => {
-  const db = getDB();
-  const filter = buildCommitFilter(req.query);
-  const result = await db.collection('commits').aggregate([
-    { $match: filter },
-    { $group: {
-      _id: '$author_name',
-      lines: { $sum: { $add: ['$additions', '$deletions'] } },
-    }},
-    { $sort: { lines: -1 } },
-  ]).toArray();
-  res.json({
-    labels: result.map(r => r._id),
-    datasets: [{ label: 'Lines Changed', data: result.map(r => r.lines) }],
   });
 });
 
@@ -119,7 +88,7 @@ router.get('/conformance/trajectory', async (req, res) => {
   });
 });
 
-// Summary: all projects' latest conformance (for dashboard ranking)
+// Summary: all projects' latest conformance (individual distance from baseline)
 router.get('/conformance/summary', async (req, res) => {
   const db = getDB();
   const sprintId = req.query.sprint_id || 'M7-S3';
@@ -145,7 +114,8 @@ router.get('/conformance/summary', async (req, res) => {
     });
   }
 
-  summary.sort((a, b) => (b.score || 0) - (a.score || 0));
+  // No ranking — each team's distance from baseline is shown independently
+  summary.sort((a, b) => a.project_id - b.project_id);
   res.json(summary);
 });
 
@@ -169,7 +139,7 @@ router.get('/deliverable-conformance/summary', async (req, res) => {
 
   const summaries = await db.collection('project_conformance_summary')
     .find({ sprint_id: sprintId })
-    .sort({ weighted_score: -1 })
+    .sort({ project_id: 1 })
     .toArray();
 
   // Enrich with project names
@@ -208,6 +178,41 @@ router.get('/diff-metrics', async (req, res) => {
     req.query.sprint_id || 'ES11-S1'
   );
   res.json(metrics);
+});
+
+// ── Professor subsidy endpoints (per-member raw data, no scoring) ────────────
+
+// Commits per member (raw data for professor report)
+router.get('/professor/commits-per-member', async (req, res) => {
+  const db = getDB();
+  const filter = buildCommitFilter(req.query);
+  const result = await db.collection('commits').aggregate([
+    { $match: filter },
+    { $group: { _id: '$author_name', count: { $sum: 1 } } },
+    { $sort: { count: -1 } },
+  ]).toArray();
+  res.json({
+    labels: result.map(r => r._id),
+    datasets: [{ label: 'Commits', data: result.map(r => r.count) }],
+  });
+});
+
+// Lines changed per member (raw data for professor report)
+router.get('/professor/lines-per-member', async (req, res) => {
+  const db = getDB();
+  const filter = buildCommitFilter(req.query);
+  const result = await db.collection('commits').aggregate([
+    { $match: filter },
+    { $group: {
+      _id: '$author_name',
+      lines: { $sum: { $add: ['$additions', '$deletions'] } },
+    }},
+    { $sort: { lines: -1 } },
+  ]).toArray();
+  res.json({
+    labels: result.map(r => r._id),
+    datasets: [{ label: 'Lines Changed', data: result.map(r => r.lines) }],
+  });
 });
 
 // Export: all artifacts for a project (audit trail)

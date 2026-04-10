@@ -80,11 +80,11 @@
   </div>
 </div>
 
-<!-- SCM Conformance Summary Table (CEP results) -->
+<!-- SCM Conformance Distance — Each team's distance from baseline (no ranking) -->
 <div class="card mb-4">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <strong><i class="bi bi-shield-check me-2"></i>SCM Conformance Distance — Daily CEP Results</strong>
-    <small class="text-muted">Sprint M7-S3 · Evaluated at Day <strong id="sprintDayBadge">—</strong></small>
+    <strong><i class="bi bi-shield-check me-2"></i>Artifact Conformance Distance from Baseline</strong>
+    <small class="text-muted">Sprint M7-S3 · Each team evaluated independently</small>
   </div>
   <div class="card-body p-0">
     <table class="table table-hover mb-0">
@@ -121,7 +121,7 @@
           <td class="text-center"><%= c.sprint_day || '—' %></td>
           <td>
             <% (c.patterns || []).forEach(pt => { %>
-              <span class="badge bg-<%= pt.includes('CRITICAL') || pt === 'INACTIVE_MEMBER' || pt === 'LOW_CADENCE' ? 'danger' : 'warning text-dark' %> me-1">
+              <span class="badge bg-<%= pt === 'LOW_CADENCE' ? 'danger' : 'warning text-dark' %> me-1">
                 <%= pt %>
               </span>
             <% }) %>
@@ -138,56 +138,45 @@
   </div>
 </div>
 
-<!-- Charts row -->
-<div class="row g-3 mb-4">
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header">Commits per Student (SCM Event Distribution)</div>
-      <div class="card-body"><canvas id="commitsPerStudentChart" height="220"></canvas></div>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header">Commits over Time (CEP: Temporal Distribution)</div>
-      <div class="card-body"><canvas id="commitsOverTimeChart" height="220"></canvas></div>
-    </div>
-  </div>
-</div>
-
-<div class="row g-3 mb-4">
-  <div class="col-md-4">
-    <div class="card">
-      <div class="card-header">Code Churn per Student</div>
-      <div class="card-body"><canvas id="linesPerStudentChart" height="220"></canvas></div>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card">
-      <div class="card-header">MR Status (Change Control)</div>
-      <div class="card-body"><canvas id="mrStatusChart" height="220"></canvas></div>
-    </div>
-  </div>
-  <div class="col-md-4">
-    <div class="card">
-      <div class="card-header">Issue Status (Requirement Traceability)</div>
-      <div class="card-body"><canvas id="issueStatusChart" height="220"></canvas></div>
-    </div>
-  </div>
-</div>
-
-<!-- Conventional commit breakdown -->
+<!-- Conventional Commit Types as KPI cards -->
 <% if (Object.keys(conventionalTypes).length > 0) { %>
-<div class="card mb-4">
-  <div class="card-header">Conventional Commit Types (Commit Quality SCM Metric)</div>
-  <div class="card-body">
-    <div class="d-flex flex-wrap gap-2">
-      <% Object.entries(conventionalTypes).sort((a,b)=>b[1]-a[1]).forEach(([type, count]) => { %>
-        <span class="badge bg-secondary fs-6"><%= type %>: <%= count %></span>
-      <% }) %>
+<% const typeColors = { feat:'primary', fix:'danger', docs:'info', test:'success', refactor:'secondary', chore:'dark', ci:'warning', perf:'success', style:'secondary', build:'dark' }; %>
+<div class="row g-2 mb-3">
+  <div class="col-12"><small class="text-muted fw-bold">Commit Quality (Conventional Commits)</small></div>
+  <% Object.entries(conventionalTypes).sort((a,b)=>b[1]-a[1]).forEach(([type, count]) => { %>
+  <div class="col">
+    <div class="card text-center border-0 bg-light">
+      <div class="card-body py-2 px-1">
+        <div class="fs-4 fw-bold text-<%= typeColors[type] || 'secondary' %>"><%= count %></div>
+        <div class="text-muted" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.5px"><%= type %></div>
+      </div>
     </div>
   </div>
+  <% }) %>
 </div>
 <% } %>
+
+<!-- Team Artifact Charts — single row, line chart wider -->
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header small">Team Commits over Time</div>
+      <div class="card-body p-2"><canvas id="commitsOverTimeChart" height="180"></canvas></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-header small">MR Status</div>
+      <div class="card-body p-2 d-flex justify-content-center"><canvas id="mrStatusChart" style="max-height:150px;max-width:150px"></canvas></div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-header small">Issue Status</div>
+      <div class="card-body p-2 d-flex justify-content-center"><canvas id="issueStatusChart" style="max-height:150px;max-width:150px"></canvas></div>
+    </div>
+  </div>
+</div>
 
 <!-- Project list -->
 <div class="card mb-4">

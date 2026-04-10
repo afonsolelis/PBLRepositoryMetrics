@@ -16,10 +16,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
 // Routes
-app.use('/',          require('./routes/index'));
-app.use('/projects',  require('./routes/projects'));
-app.use('/members',   require('./routes/members'));
-app.use('/api',       require('./routes/api'));
+app.use('/',                  require('./routes/index'));
+app.use('/projects',          require('./routes/projects'));
+app.use('/members',           require('./routes/members'));
+app.use('/professor-report',  require('./routes/professor-report'));
+app.use('/api',               require('./routes/api'));
 
 app.use((req, res) => res.status(404).render('pages/404'));
 

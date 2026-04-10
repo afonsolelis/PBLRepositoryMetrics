@@ -368,11 +368,11 @@ function generateCommitDiffs(team, commits) {
 // ─── Team document quality mapping ──────────────────────────────────────────
 
 const DOC_QUALITY_MAP = {
-  consistent:   'excellent',
-  cramming:     'poor',
-  ghost_member: 'partial',
-  mr_bottleneck: 'late',
-  recovering:   'improving',
+  consistent:          'excellent',
+  cramming:            'poor',
+  partial_deliverable: 'partial',
+  mr_bottleneck:       'late',
+  recovering:          'improving',
 };
 
 // ─── Main seed function ─────────────────────────────────────────────────────

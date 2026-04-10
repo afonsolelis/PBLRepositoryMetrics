@@ -9,9 +9,12 @@
  *   5. Generates structured strong/weak points for evaluators
  *   6. Persists the result in daily_conformance collection
  *
+ * All patterns operate at the TEAM level — the system evaluates the artifact
+ * produced by the team as a whole. Individual member assessment is the
+ * exclusive prerogative of the professor/advisor.
+ *
  * Pattern catalogue (CEP complex events):
  *   CRAMMING_RISK    — >50% of commits in last 20% of sprint duration
- *   INACTIVE_MEMBER  — member with 0 commits after day 3 of sprint
  *   MR_BOTTLENECK    — MR open >3 days without merge
  *   LOW_CADENCE      — cumulative commits <40% of expected at current sprint day
  *   QUALITY_DRIFT    — conventional commit rate <50%
@@ -58,19 +61,6 @@ function detectCramming(commits, sprintStart, sprintEnd) {
     };
   }
   return null;
-}
-
-function detectInactiveMembers(commits, members, sprintDay) {
-  if (sprintDay < 4) return null;
-  const committerSet = new Set(commits.map(c => c.author_name));
-  const inactive = members.filter(m => !committerSet.has(m.name));
-  if (inactive.length === 0) return null;
-  return {
-    type: 'INACTIVE_MEMBER',
-    severity: 'critical',
-    message: `${inactive.map(m => m.name).join(', ')} — 0 commits in ${sprintDay} sprint working days`,
-    members: inactive.map(m => m.name),
-  };
 }
 
 function detectMRBottleneck(mergeRequests, today) {
@@ -179,14 +169,12 @@ async function evaluateProject(projectId, descriptor, referenceDate) {
 
   // ── CEP pattern detection ────────────────────────────────────────────────
   const patterns = [];
-  const crammingEvent  = detectCramming(commits, sprintStart, sprintEnd);
-  const inactiveEvent  = detectInactiveMembers(commits, members, elapsedDays);
+  const crammingEvent   = detectCramming(commits, sprintStart, sprintEnd);
   const bottleneckEvent = detectMRBottleneck(mergeRequests, today);
-  const cadenceEvent   = detectLowCadence(commits.length, expectedCommits);
-  const qualityEvent   = detectQualityDrift(commits);
+  const cadenceEvent    = detectLowCadence(commits.length, expectedCommits);
+  const qualityEvent    = detectQualityDrift(commits);
 
   if (crammingEvent)   patterns.push(crammingEvent);
-  if (inactiveEvent)   patterns.push(inactiveEvent);
   if (bottleneckEvent) patterns.push(bottleneckEvent);
   if (cadenceEvent)    patterns.push(cadenceEvent);
   if (qualityEvent)    patterns.push(qualityEvent);

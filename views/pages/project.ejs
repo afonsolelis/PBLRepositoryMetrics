@@ -112,40 +112,75 @@
 </div>
 <% } %>
 
-<!-- Team members -->
+<!-- Deliverable Conformance (Team Artifact Quality) -->
+<% if (deliverableConformance && deliverableConformance.length > 0) { %>
 <div class="card mb-4">
-  <div class="card-header">Team Members</div>
-  <div class="list-group list-group-flush">
-    <% members.forEach(m => { %>
-      <a href="/members/<%= m.username %>" class="list-group-item list-group-item-action d-flex justify-content-between">
-        <span><%= m.name %> <small class="text-muted">@<%= m.username %></small></span>
-        <span class="badge bg-<%= m.access_level >= 40 ? 'primary' : 'secondary' %>">
-          <%= m.access_level >= 40 ? 'Maintainer' : 'Developer' %>
-        </span>
-      </a>
-    <% }) %>
-  </div>
-</div>
-
-<!-- Commits by author -->
-<div class="card mb-4">
-  <div class="card-header">Commits by Author</div>
+  <div class="card-header"><strong><i class="bi bi-file-earmark-check me-2"></i>Deliverable Conformance — Team Artifact Quality</strong></div>
   <div class="card-body p-0">
     <table class="table table-sm mb-0">
-      <thead class="table-light"><tr><th>Author</th><th class="text-center">Commits</th></tr></thead>
+      <thead class="table-dark">
+        <tr>
+          <th>Deliverable</th>
+          <th class="text-center">Structural</th>
+          <th class="text-center">Semantic</th>
+          <th class="text-center">Commit Quality</th>
+          <th class="text-center">CEP</th>
+          <th class="text-center">Final Score</th>
+        </tr>
+      </thead>
       <tbody>
-        <% Object.entries(commitsByAuthor).sort((a,b)=>b[1].length-a[1].length).forEach(([author, cs]) => { %>
-          <tr>
-            <td><%= author %></td>
-            <td class="text-center"><span class="badge bg-primary"><%= cs.length %></span></td>
-          </tr>
+        <% deliverableConformance.forEach(dc => { %>
+        <tr>
+          <td>
+            <strong><%= dc.deliverable_id %></strong>
+            <br><small class="text-muted"><%= dc.deliverable_name %></small>
+          </td>
+          <% [dc.structural_score, dc.semantic_score, dc.commit_score, dc.cep_score, dc.final_score].forEach(score => { %>
+            <% const pct = Math.round((score || 0) * 100); %>
+            <td class="text-center">
+              <span class="badge bg-<%= pct >= 70 ? 'success' : pct >= 40 ? 'warning text-dark' : 'danger' %>">
+                <%= pct %>%
+              </span>
+            </td>
+          <% }) %>
+        </tr>
+        <% if (dc.weak_points && dc.weak_points.length > 0) { %>
+        <tr>
+          <td colspan="6" class="small text-danger ps-4">
+            <% dc.weak_points.slice(0, 3).forEach(wp => { %>
+              <div>• <%= wp %></div>
+            <% }) %>
+          </td>
+        </tr>
+        <% } %>
         <% }) %>
       </tbody>
     </table>
   </div>
 </div>
+<% } %>
 
-<!-- Recent commits -->
+<!-- Team members -->
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>Team Members</span>
+    <a href="/professor-report/<%= project.project_id %>" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-file-text me-1"></i>Professor Report
+    </a>
+  </div>
+  <div class="list-group list-group-flush">
+    <% members.forEach(m => { %>
+      <div class="list-group-item d-flex justify-content-between">
+        <span><%= m.name %> <small class="text-muted">@<%= m.username %></small></span>
+        <span class="badge bg-<%= m.access_level >= 40 ? 'primary' : 'secondary' %>">
+          <%= m.access_level >= 40 ? 'Maintainer' : 'Developer' %>
+        </span>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+<!-- Recent commits (team-level) -->
 <div class="card mb-4">
   <div class="card-header">Recent Commits (Configuration Items)</div>
   <div class="card-body p-0">

@@ -1,5 +1,5 @@
 /**
- * Synthesis Service — Final Composite Score
+ * Synthesis Service — Final Composite Score (Team Artifact Level)
  *
  * Phase 4: Combines results from all previous phases into a single
  * deliverable_conformance record per deliverable per project:
@@ -9,6 +9,7 @@
  *   - Semantic quality score (Phase 3)
  *   - Quantitative CEP score (existing Phase 2)
  *
+ * All scores refer to the team artifact as a whole.
  * Weights are configurable per sprint via assessment_weights in the
  * Sprint Descriptor.
  */
@@ -64,7 +65,6 @@ function computeDeliverableScore(structural, semantic, diffMetrics, cepScore, we
     patterns: allPatterns,
     recommended_actions: semantic?.recommended_actions || [],
     section_assessments: semantic?.section_assessments || [],
-    member_contributions: diffMetrics?.contribution_by_member || [],
   };
 }
 

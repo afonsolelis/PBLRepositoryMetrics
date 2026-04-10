@@ -93,13 +93,11 @@ async function runSemanticPipeline(sprintId) {
     console.log(`[Pipeline] → Weighted score: ${synthesis.summary.weighted_score}`);
   }
 
-  // Print ranking
-  console.log('\n[Pipeline] ═══ Final Ranking ═══');
-  allResults
-    .sort((a, b) => b.weighted_score - a.weighted_score)
-    .forEach((r, i) => {
-      console.log(`  ${i + 1}. ${r.project_name}: ${r.weighted_score}`);
-    });
+  // Print individual results (no ranking — each team evaluated independently)
+  console.log('\n[Pipeline] ═══ Evaluation Complete ═══');
+  allResults.forEach(r => {
+    console.log(`  ${r.project_name}: weighted_score=${r.weighted_score}`);
+  });
 
   return allResults;
 }

@@ -1,19 +1,21 @@
 /**
- * Diff Analyzer — Commit Quality Metrics from Diffs
+ * Diff Analyzer — Team Artifact Commit Quality Metrics
  *
- * Phase 2b: Analyzes commit diffs to produce quality metrics:
+ * Phase 2b: Analyzes commit diffs to produce team-level quality metrics:
  *
  *   - Atomicity: median lines per commit (smaller = better)
  *   - Test ratio: commits touching test/ vs src/
  *   - Churn hotspots: files edited >5x in the sprint
- *   - Contributor balance: Gini-like concentration measure
  *   - Doc ratio: commits touching docs/ vs total
  *
- * Also detects CEP patterns:
+ * All metrics evaluate the team's artifact as a whole.
+ * Per-member breakdowns are available separately as raw data
+ * for the professor's report — they carry no score or judgment.
+ *
+ * CEP patterns (team-level):
  *   MONOLITHIC_COMMIT    — commit with >300 lines changed
  *   NO_TESTS             — code in src/ with zero test commits
  *   CHURN_HOTSPOT        — same file edited >5x in sprint
- *   LOAD_IMBALANCE       — 1 member contributing >70% of lines
  */
 
 const { getDB } = require('../config/db');
@@ -29,10 +31,9 @@ function computeMetrics(diffs, members) {
       test_ratio: 0,
       doc_ratio: 0,
       churn_hotspots: [],
-      contributor_balance: 0,
-      contribution_by_member: [],
       patterns: [],
       composite_score: 0,
+      _professor_raw_data: { contribution_by_member: [] },
     };
   }
 
@@ -121,30 +122,18 @@ function computeMetrics(diffs, members) {
     });
   }
 
-  // LOAD_IMBALANCE
-  if (maxConcentration > 0.70 && members.length > 1) {
-    const topContributor = memberContributions[0];
-    patterns.push({
-      type: 'LOAD_IMBALANCE',
-      severity: 'warning',
-      message: `${topContributor.name} concentra ${topContributor.percentage}% das alterações — distribuição desigual de trabalho`,
-      top_contributor: topContributor.name,
-      concentration: maxConcentration,
-    });
-  }
-
   // ── Composite score ─────────────────────────────────────────────────────
-  // Higher is better. Weights emphasize atomicity and balance.
+  // Higher is better. Team-level metrics only — no individual balance.
   const atomicityScore = Math.min(atomicRatio, 1.0);
-  const balanceScore = contributorBalance;
   const testScore = Math.min(testRatio * 2, 1.0); // boost test presence
+  const docScore = Math.min(docRatio * 2, 1.0);   // boost doc presence
   const penaltyPerPattern = 0.1;
   const patternPenalty = Math.min(patterns.length * penaltyPerPattern, 0.4);
 
   const compositeScore = +Math.max(0, (
-    atomicityScore * 0.35 +
-    balanceScore * 0.30 +
-    testScore * 0.20 +
+    atomicityScore * 0.45 +
+    testScore * 0.25 +
+    docScore * 0.15 +
     0.15 - // base
     patternPenalty
   )).toFixed(2);
@@ -156,10 +145,10 @@ function computeMetrics(diffs, members) {
     test_ratio: testRatio,
     doc_ratio: docRatio,
     churn_hotspots: churnHotspots,
-    contributor_balance: contributorBalance,
-    contribution_by_member: memberContributions,
     patterns,
     composite_score: Math.min(compositeScore, 1.0),
+    // Raw per-member data — no score, no judgment. Available for professor report only.
+    _professor_raw_data: { contribution_by_member: memberContributions },
   };
 }
 
