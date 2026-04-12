@@ -50,7 +50,7 @@
         <tr>
           <td><code class="small"><%= c.sha.substring(0,8) %></code></td>
           <td class="small"><%= c.message.substring(0, 70) %></td>
-          <td class="small text-muted"><%= c.committed_date.substring(0,10) %></td>
+          <td class="small text-muted"><%= new Date(c.committed_date).toISOString().substring(0,10) %></td>
         </tr>
         <% }) %>
       </tbody>

@@ -1,19 +1,23 @@
 /**
- * Semantic Analyzer — LLM-based Document Quality Assessment
+ * Semantic Analyzer — Multi-Provider LLM Document Quality Assessment
  *
- * Phase 3: Uses Anthropic Claude API to evaluate document content
- * against Sprint Descriptor criteria. The LLM receives:
+ * Phase 3: Uses an LLM to evaluate document content against Sprint
+ * Descriptor criteria. Supports multiple providers:
  *
- *   - The document content
- *   - Expected sections and evaluation criteria from the metaproject
- *   - Structural check results (already computed deterministically)
- *   - Contribution history per member
+ *   - Anthropic Claude API (ANTHROPIC_API_KEY)
+ *   - OpenAI-compatible endpoints (LLM_BASE_URL + LLM_API_KEY),
+ *     including local servers: Ollama, vLLM, llama.cpp, LM Studio
  *
+ * The LLM receives the document content, expected sections, evaluation
+ * criteria, structural check results, and contribution history.
  * Returns a structured JSON assessment with per-section scores,
  * executive summary, strengths, weaknesses, and recommended actions.
  *
- * Requires: ANTHROPIC_API_KEY environment variable
- * Falls back to mock results if API key is not set.
+ * Provider selection priority:
+ *   1. LLM_BASE_URL (OpenAI-compatible, local or remote)
+ *   2. ANTHROPIC_API_KEY (Anthropic Claude)
+ *
+ * At least one provider must be configured.
  */
 
 const { getDB } = require('../config/db');
@@ -25,8 +29,30 @@ try {
   Anthropic = null;
 }
 
-const MODEL = process.env.SEMANTIC_MODEL || 'claude-haiku-4-5-20251001';
 const MAX_CONTENT_CHARS = 8000; // truncate very large documents
+
+// ─── Provider detection ────────────────────────────────────────────────────
+
+function getProvider() {
+  if (process.env.LLM_BASE_URL) {
+    return {
+      type: 'openai-compatible',
+      baseUrl: process.env.LLM_BASE_URL.replace(/\/+$/, ''),
+      apiKey: process.env.LLM_API_KEY || '',
+      model: process.env.SEMANTIC_MODEL || 'gemma3:27b',
+    };
+  }
+
+  if (Anthropic && process.env.ANTHROPIC_API_KEY) {
+    return {
+      type: 'anthropic',
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      model: process.env.SEMANTIC_MODEL || 'claude-haiku-4-5-20251001',
+    };
+  }
+
+  return null;
+}
 
 // ─── Prompt builder ─────────────────────────────────────────────────────────
 
@@ -89,70 +115,73 @@ Avalie CADA SEÇÃO esperada e retorne APENAS um JSON válido (sem markdown, sem
 }`;
 }
 
-// ─── Mock response (when no API key) ────────────────────────────────────────
+// ─── LLM call: OpenAI-compatible endpoint (Ollama, vLLM, llama.cpp, etc.) ─
 
-function generateMockResponse(deliverable, structuralResult) {
-  const sections = deliverable.expected_sections || [];
-  const sectionAssessments = sections.map(s => {
-    const found = structuralResult.section_details?.find(sd => sd.section === s);
-    const present = found?.present || false;
-    const isSubstantive = found?.is_substantive || false;
+async function callOpenAICompatible(prompt, provider) {
+  const url = `${provider.baseUrl}/v1/chat/completions`;
 
-    return {
-      section: s,
-      present,
-      completeness: isSubstantive ? 0.8 : (present ? 0.3 : 0.0),
-      quality: isSubstantive ? 0.75 : (present ? 0.25 : 0.0),
-      feedback: isSubstantive
-        ? `Seção "${s}" contém conteúdo substantivo. [avaliação mock — LLM não disponível]`
-        : present
-          ? `Seção "${s}" presente mas com conteúdo insuficiente ou placeholder. [mock]`
-          : `Seção "${s}" ausente no documento. [mock]`,
-    };
-  });
-
-  const avgScore = sectionAssessments.length > 0
-    ? sectionAssessments.reduce((sum, s) => sum + s.quality, 0) / sectionAssessments.length
-    : 0;
-
-  return {
-    section_assessments: sectionAssessments,
-    overall_semantic_score: +avgScore.toFixed(2),
-    executive_summary: `[MOCK] Avaliação simulada baseada na verificação estrutural. Score: ${(avgScore * 100).toFixed(0)}%. Utilize ANTHROPIC_API_KEY para avaliação semântica real via LLM.`,
-    strengths: sectionAssessments.filter(s => s.quality >= 0.7).map(s => `Seção "${s.section}" bem desenvolvida`),
-    weaknesses: sectionAssessments.filter(s => s.quality < 0.5).map(s => `Seção "${s.section}" precisa de melhoria`),
-    recommended_actions: structuralResult.sections_missing.length > 0
-      ? [`Adicionar seções ausentes: ${structuralResult.sections_missing.join(', ')}`]
-      : ['Revisar seções com placeholders'],
-    _mock: true,
-  };
-}
-
-// ─── LLM call ───────────────────────────────────────────────────────────────
-
-async function callLLM(prompt) {
-  if (!Anthropic || !process.env.ANTHROPIC_API_KEY) {
-    return null;
+  const headers = { 'Content-Type': 'application/json' };
+  if (provider.apiKey) {
+    headers['Authorization'] = `Bearer ${provider.apiKey}`;
   }
 
+  const body = JSON.stringify({
+    model: provider.model,
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 2000,
+    temperature: 0.1,
+  });
+
+  const response = await fetch(url, { method: 'POST', headers, body });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`LLM endpoint ${response.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data = await response.json();
+  const text = data.choices[0].message.content.trim();
+
+  return parseJSON(text);
+}
+
+// ─── LLM call: Anthropic Claude ────────────────────────────────────────────
+
+async function callAnthropic(prompt, provider) {
   const client = new Anthropic();
 
   const response = await client.messages.create({
-    model: MODEL,
+    model: provider.model,
     max_tokens: 2000,
     messages: [{ role: 'user', content: prompt }],
   });
 
   const text = response.content[0].text.trim();
+  return parseJSON(text);
+}
 
-  // Extract JSON from response (handle markdown code blocks)
+// ─── JSON parser (handles markdown code blocks) ────────────────────────────
+
+function parseJSON(text) {
   let jsonText = text;
   const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (jsonMatch) {
     jsonText = jsonMatch[1].trim();
   }
-
   return JSON.parse(jsonText);
+}
+
+// ─── Unified LLM dispatcher ───────────────────────────────────────────────
+
+async function callLLM(prompt) {
+  const provider = getProvider();
+  if (!provider) return null;
+
+  if (provider.type === 'openai-compatible') {
+    return callOpenAICompatible(prompt, provider);
+  }
+
+  return callAnthropic(prompt, provider);
 }
 
 // ─── Main analysis function ─────────────────────────────────────────────────
@@ -160,18 +189,17 @@ async function callLLM(prompt) {
 async function analyzeDeliverable(deliverable, structuralResult, contributionData) {
   const prompt = buildPrompt(deliverable, structuralResult, contributionData);
 
-  try {
-    const llmResult = await callLLM(prompt);
-    if (llmResult) {
-      llmResult._mock = false;
-      return llmResult;
-    }
-  } catch (err) {
-    console.error(`[Semantic] LLM error for "${deliverable.name}": ${err.message}`);
+  const provider = getProvider();
+  if (!provider) {
+    throw new Error(
+      'No LLM provider configured. Set LLM_BASE_URL for local models (Ollama, vLLM) ' +
+      'or ANTHROPIC_API_KEY for Anthropic Claude.'
+    );
   }
 
-  // Fallback to mock
-  return generateMockResponse(deliverable, structuralResult);
+  const llmResult = await callLLM(prompt);
+  llmResult._mock = false;
+  return llmResult;
 }
 
 // ─── Analyze all deliverables for a project ─────────────────────────────────
@@ -179,43 +207,58 @@ async function analyzeDeliverable(deliverable, structuralResult, contributionDat
 async function analyzeAllDeliverables(projectId, descriptor, structuralResults, diffMetrics) {
   const db = getDB();
   const results = [];
-  const usingLLM = !!(Anthropic && process.env.ANTHROPIC_API_KEY);
+  const provider = getProvider();
 
-  console.log(`[Semantic] Analyzing ${structuralResults.length} deliverables for project ${projectId} (LLM: ${usingLLM ? MODEL : 'mock'})`);
+  if (!provider) {
+    console.error('[Semantic] ERROR: No LLM provider configured. Set LLM_BASE_URL or ANTHROPIC_API_KEY.');
+    return results;
+  }
+
+  const providerLabel = provider.type === 'openai-compatible'
+    ? `${provider.model} @ ${provider.baseUrl}`
+    : `${provider.model} (Anthropic)`;
+
+  console.log(`[Semantic] Analyzing ${structuralResults.length} deliverables for project ${projectId} (LLM: ${providerLabel})`);
 
   for (const structural of structuralResults) {
     const deliverable = descriptor.deliverables.find(d => d.id === structural.deliverable_id);
     if (!deliverable) continue;
 
     const contribution = diffMetrics?.contribution_by_member || [];
-    const result = await analyzeDeliverable(deliverable, structural, contribution);
 
-    // Persist
-    await db.collection('semantic_assessments').updateOne(
-      {
-        project_id: projectId,
-        sprint_id: descriptor.sprint_id,
-        deliverable_id: deliverable.id,
-      },
-      {
-        $set: {
+    try {
+      const result = await analyzeDeliverable(deliverable, structural, contribution);
+
+      // Persist
+      await db.collection('semantic_assessments').updateOne(
+        {
           project_id: projectId,
           sprint_id: descriptor.sprint_id,
           deliverable_id: deliverable.id,
-          deliverable_name: deliverable.name,
-          model_used: usingLLM ? MODEL : 'mock',
-          ...result,
-          evaluated_at: new Date().toISOString(),
         },
-      },
-      { upsert: true }
-    );
+        {
+          $set: {
+            project_id: projectId,
+            sprint_id: descriptor.sprint_id,
+            deliverable_id: deliverable.id,
+            deliverable_name: deliverable.name,
+            model_used: provider.model,
+            provider_type: provider.type,
+            ...result,
+            evaluated_at: new Date().toISOString(),
+          },
+        },
+        { upsert: true }
+      );
 
-    results.push({ deliverable_id: deliverable.id, ...result });
-    console.log(`  [${deliverable.name}] semantic_score=${result.overall_semantic_score} (${result._mock ? 'mock' : 'LLM'})`);
+      results.push({ deliverable_id: deliverable.id, ...result });
+      console.log(`  [${deliverable.name}] semantic_score=${result.overall_semantic_score}`);
+    } catch (err) {
+      console.error(`  [${deliverable.name}] LLM error: ${err.message}`);
+    }
   }
 
   return results;
 }
 
-module.exports = { analyzeDeliverable, analyzeAllDeliverables, buildPrompt, generateMockResponse };
+module.exports = { analyzeDeliverable, analyzeAllDeliverables, buildPrompt };

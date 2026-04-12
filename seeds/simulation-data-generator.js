@@ -17,6 +17,7 @@
 
 const { MongoClient } = require('mongodb');
 const { SPRINT_DESCRIPTORS } = require('./sprint-descriptors');
+const { ensureTimeSeriesCollections } = require('../config/db');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/afonsystem';
 
@@ -157,7 +158,7 @@ function timestampOnDay(day, hourMin = 8, hourMax = 22) {
   d.setHours(hourMin + Math.floor(Math.random() * (hourMax - hourMin)));
   d.setMinutes(Math.floor(Math.random() * 60));
   d.setSeconds(Math.floor(Math.random() * 60));
-  return d.toISOString();
+  return d; // Date object for time-series collection compatibility
 }
 
 // ─── Helper: generate a SHA-like string ──────────────────────────────────────
@@ -499,6 +500,9 @@ async function seed() {
   await client.connect();
   const db = client.db();
 
+  // Ensure time-series collections exist before seeding
+  await ensureTimeSeriesCollections(db);
+
   console.log('[Seed] Clearing existing collections...');
   await Promise.all([
     db.collection('projects').deleteMany({}),
@@ -542,17 +546,10 @@ async function seed() {
     }));
     await db.collection('members').bulkWrite(memberOps);
 
-    // Commits
+    // Commits (time-series collection — use insertMany)
     const commits = generateCommits(team);
     if (commits.length > 0) {
-      const commitOps = commits.map(c => ({
-        updateOne: {
-          filter: { project_id: c.project_id, sha: c.sha },
-          update: { $set: c },
-          upsert: true,
-        },
-      }));
-      await db.collection('commits').bulkWrite(commitOps);
+      await db.collection('commits').insertMany(commits);
     }
 
     // Merge Requests

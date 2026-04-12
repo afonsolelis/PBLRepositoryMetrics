@@ -12,7 +12,7 @@ router.get('/commits-over-time', async (req, res) => {
   const result = await db.collection('commits').aggregate([
     { $match: filter },
     { $group: {
-      _id: { $substr: ['$committed_date', 0, 10] },
+      _id: { $dateToString: { format: '%Y-%m-%d', date: '$committed_date' } },
       count: { $sum: 1 },
     }},
     { $sort: { _id: 1 } },
@@ -213,6 +213,22 @@ router.get('/professor/lines-per-member', async (req, res) => {
     labels: result.map(r => r._id),
     datasets: [{ label: 'Lines Changed', data: result.map(r => r.lines) }],
   });
+});
+
+// Export commits as downloadable JSON
+router.get('/commits-export', async (req, res) => {
+  const db = getDB();
+  if (!req.query.project_id) return res.status(400).json({ error: 'project_id required' });
+  const projectId = parseInt(req.query.project_id);
+
+  const commits = await db.collection('commits')
+    .find({ project_id: projectId })
+    .sort({ committed_date: -1 })
+    .toArray();
+
+  res.setHeader('Content-Disposition', `attachment; filename="commits_${projectId}.json"`);
+  res.setHeader('Content-Type', 'application/json');
+  res.json({ project_id: projectId, exported_at: new Date().toISOString(), total: commits.length, commits });
 });
 
 // Export: all artifacts for a project (audit trail)

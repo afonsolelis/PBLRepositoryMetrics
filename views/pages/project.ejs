@@ -182,7 +182,12 @@
 
 <!-- Recent commits (team-level) -->
 <div class="card mb-4">
-  <div class="card-header">Recent Commits (Configuration Items)</div>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    Recent Commits (Configuration Items)
+    <a href="/api/commits-export?project_id=<%= project.project_id %>" class="btn btn-sm btn-outline-secondary" download="commits_<%= project.project_id %>.json">
+      <i class="bi bi-download me-1"></i>Export JSON
+    </a>
+  </div>
   <div class="card-body p-0">
     <table class="table table-sm mb-0">
       <thead class="table-light"><tr><th>SHA</th><th>Author</th><th>Message</th><th>Date</th></tr></thead>
@@ -192,7 +197,7 @@
           <td><code class="small"><%= c.sha.substring(0,8) %></code></td>
           <td class="small"><%= c.author_name %></td>
           <td class="small"><%= c.message.substring(0, 60) %><%= c.message.length > 60 ? '…' : '' %></td>
-          <td class="small text-muted"><%= c.committed_date.substring(0,10) %></td>
+          <td class="small text-muted"><%= new Date(c.committed_date).toISOString().substring(0,10) %></td>
         </tr>
         <% }) %>
       </tbody>
@@ -217,7 +222,7 @@
                 <%= mr.state %>
               </span>
             </div>
-            <small class="text-muted"><%= mr.author_name %> · <%= mr.created_at.substring(0,10) %></small>
+            <small class="text-muted"><%= mr.author_name %> · <%= new Date(mr.created_at).toISOString().substring(0,10) %></small>
           </div>
         <% }) %>
       </div>

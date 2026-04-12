@@ -122,15 +122,15 @@ async function evaluateProject(projectId, descriptor, referenceDate) {
   const [commits, mergeRequests, issues, members] = await Promise.all([
     db.collection('commits').find({
       project_id: projectId,
-      committed_date: { $gte: sprintStart.toISOString(), $lte: today.toISOString() },
+      committed_date: { $gte: sprintStart, $lte: today },
     }).toArray(),
     db.collection('merge_requests').find({
       project_id: projectId,
-      created_at: { $gte: sprintStart.toISOString() },
+      created_at: { $gte: sprintStart },
     }).toArray(),
     db.collection('issues').find({
       project_id: projectId,
-      created_at: { $gte: sprintStart.toISOString() },
+      created_at: { $gte: sprintStart },
     }).toArray(),
     db.collection('members').find({ project_id: projectId }).toArray(),
   ]);
@@ -239,7 +239,7 @@ async function evaluateProject(projectId, descriptor, referenceDate) {
     project_id:            projectId,
     sprint_id:             descriptor.sprint_id,
     sprint_number:         descriptor.sprint_number,
-    evaluated_at:          today.toISOString(),
+    evaluated_at:          today, // Date object for time-series collection
     sprint_day:            elapsedDays,
     total_working_days:    totalWorkingDays,
     sprint_progress_ratio: +progressRatio.toFixed(2),
@@ -271,11 +271,11 @@ async function evaluateProject(projectId, descriptor, referenceDate) {
     },
   };
 
-  await db.collection('daily_conformance').updateOne(
-    { project_id: projectId, sprint_id: descriptor.sprint_id, sprint_day: elapsedDays },
-    { $set: result },
-    { upsert: true }
+  // Time-series collections do not support upsert — delete existing then insert
+  await db.collection('daily_conformance').deleteMany(
+    { project_id: projectId, sprint_id: descriptor.sprint_id, sprint_day: elapsedDays }
   );
+  await db.collection('daily_conformance').insertOne(result);
 
   return result;
 }

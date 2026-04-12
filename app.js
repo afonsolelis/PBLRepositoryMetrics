@@ -62,7 +62,12 @@ async function start() {
   app.listen(PORT, () => {
     console.log(`[App] PBLRepositoryMetrics v2.0.0 running on http://localhost:${PORT}`);
     console.log(`[App] Mode: ${process.env.SEED_ON_START === 'true' ? 'DEMO (simulation data)' : 'LIVE (GitLab)'}`);
-    console.log(`[App] Semantic: ${process.env.ANTHROPIC_API_KEY ? 'LLM (Claude)' : 'Mock'}`);
+    const semanticProvider = process.env.LLM_BASE_URL
+      ? `${process.env.SEMANTIC_MODEL || 'gemma3:27b'} @ ${process.env.LLM_BASE_URL}`
+      : process.env.ANTHROPIC_API_KEY
+        ? `${process.env.SEMANTIC_MODEL || 'claude-haiku-4-5-20251001'} (Anthropic)`
+        : 'NOT CONFIGURED — set LLM_BASE_URL or ANTHROPIC_API_KEY';
+    console.log(`[App] Semantic: ${semanticProvider}`);
   });
 }
 

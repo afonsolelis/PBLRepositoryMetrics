@@ -1,9 +1,9 @@
 /**
- * Unit tests for semantic-analyzer.js
- * Tests mock mode (no API key needed).
+ * Unit tests for semantic-analyzer.js and synthesis.js
+ * Tests prompt building and composite score computation (no LLM needed).
  */
 
-const { generateMockResponse, buildPrompt } = require('../services/semantic-analyzer');
+const { buildPrompt } = require('../services/semantic-analyzer');
 
 let passed = 0;
 let failed = 0;
@@ -18,9 +18,7 @@ function assert(condition, message) {
   }
 }
 
-// ─── Test mock response for excellent document ──────────────────────────────
-
-console.log('\n=== Mock response: excellent doc ===');
+// ─── Test data ──────────────────────────────────────────────────────────────
 
 const deliverable = {
   id: 'D1',
@@ -46,39 +44,7 @@ const excellentStructural = {
   word_count: 650,
 };
 
-const mockExcellent = generateMockResponse(deliverable, excellentStructural);
-
-assert(mockExcellent._mock === true, 'Mock flag is set');
-assert(mockExcellent.section_assessments.length === 3, `Has 3 section assessments (got ${mockExcellent.section_assessments.length})`);
-assert(mockExcellent.overall_semantic_score >= 0.7, `Excellent doc score >= 0.7 (got ${mockExcellent.overall_semantic_score})`);
-assert(mockExcellent.strengths.length > 0, `Has strengths`);
-assert(mockExcellent.weaknesses.length === 0, `No weaknesses for excellent doc (got ${mockExcellent.weaknesses.length})`);
-
-// ─── Test mock response for poor document ───────────────────────────────────
-
-console.log('\n=== Mock response: poor doc ===');
-
-const poorStructural = {
-  deliverable_id: 'D1',
-  structural_completeness: 0.0,
-  sections_found: ['Cenário Organizacional'],
-  sections_missing: ['Requisitos Funcionais', 'Requisitos Não Funcionais'],
-  section_details: [
-    { section: 'Cenário Organizacional', present: true, is_substantive: false, word_count: 10 },
-    { section: 'Requisitos Funcionais', present: false, is_substantive: false, word_count: 0 },
-    { section: 'Requisitos Não Funcionais', present: false, is_substantive: false, word_count: 0 },
-  ],
-  placeholders_detected: ['TODO'],
-  word_count: 30,
-};
-
-const mockPoor = generateMockResponse(deliverable, poorStructural);
-
-assert(mockPoor.overall_semantic_score < 0.3, `Poor doc score < 0.3 (got ${mockPoor.overall_semantic_score})`);
-assert(mockPoor.weaknesses.length > 0, `Has weaknesses`);
-assert(mockPoor.recommended_actions.length > 0, `Has recommended actions`);
-
-// ─── Test prompt builder ────────────────────────────────────────────────────
+// ─── Prompt builder tests ──────────────────────────────────────────────────
 
 console.log('\n=== Prompt builder ===');
 
@@ -94,7 +60,34 @@ assert(prompt.includes('Alice'), 'Prompt includes contributor names');
 assert(prompt.includes('JSON'), 'Prompt asks for JSON output');
 assert(prompt.length > 500, `Prompt has substantial length (${prompt.length} chars)`);
 
-// ─── Test synthesis score computation ───────────────────────────────────────
+// ─── Prompt with poor structural results ───────────────────────────────────
+
+console.log('\n=== Prompt with poor structural ===');
+
+const poorStructural = {
+  deliverable_id: 'D1',
+  structural_completeness: 0.0,
+  sections_found: ['Cenário Organizacional'],
+  sections_missing: ['Requisitos Funcionais', 'Requisitos Não Funcionais'],
+  section_details: [],
+  placeholders_detected: ['TODO'],
+  word_count: 30,
+};
+
+const poorPrompt = buildPrompt(deliverable, poorStructural, []);
+
+assert(poorPrompt.includes('0%'), 'Poor prompt shows 0% completeness');
+assert(poorPrompt.includes('Requisitos Funcionais'), 'Poor prompt lists missing sections');
+assert(poorPrompt.includes('TODO'), 'Poor prompt lists detected placeholders');
+
+// ─── Prompt with no contribution data ──────────────────────────────────────
+
+console.log('\n=== Prompt with no contribution ===');
+
+const noContribPrompt = buildPrompt(deliverable, excellentStructural, null);
+assert(noContribPrompt.includes('Não disponível'), 'Shows "Não disponível" when no contribution data');
+
+// ─── Synthesis score computation ───────────────────────────────────────────
 
 console.log('\n=== Synthesis score computation ===');
 
