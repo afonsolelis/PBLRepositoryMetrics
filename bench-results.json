@@ -1,0 +1,50 @@
+{
+  "environment": {
+    "node": "v24.14.1",
+    "platform": "win32 x64",
+    "mongodb_uri": "mongodb://localhost:27017/afonsystem",
+    "llm_provider": "none",
+    "timestamp": "2026-05-20T14:13:19.286Z"
+  },
+  "dataset": {
+    "projects": 5,
+    "commits": 58,
+    "merge_requests": 8,
+    "issues": 27,
+    "file_snapshots": 20,
+    "commit_diffs": 58
+  },
+  "phase_timings_ms": {
+    "phase1_seed": 214.7,
+    "phase1_docs_diffs": 123.4,
+    "phase1_total": 338.1,
+    "phase2_cep_total": 88.39,
+    "phase2_cep_per_project": 17.68,
+    "phase2a_structural": {
+      "n": 5,
+      "mean_ms": 15.71,
+      "stddev_ms": 5.49,
+      "min_ms": 12.45,
+      "median_ms": 13.04,
+      "max_ms": 26.66
+    },
+    "phase2b_diff": {
+      "n": 5,
+      "mean_ms": 4.28,
+      "stddev_ms": 1.46,
+      "min_ms": 3.25,
+      "median_ms": 3.65,
+      "max_ms": 7.18
+    },
+    "phase3_semantic": null,
+    "phase4_synthesis": null,
+    "project_total": {
+      "n": 5,
+      "mean_ms": 24.41,
+      "stddev_ms": 7.43,
+      "min_ms": 19.68,
+      "median_ms": 21.08,
+      "max_ms": 39.21
+    }
+  }
+}
